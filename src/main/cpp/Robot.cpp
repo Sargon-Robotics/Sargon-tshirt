@@ -7,6 +7,7 @@
 #include <frc/Joystick.h>
 #include <frc/XboxController.h>
 #include <frc/DoubleSolenoid.h>
+#include <frc/Solenoid.h>
 #include <frc/TimedRobot.h>
 #include <frc/drive/DifferentialDrive.h>
 #include <frc/motorcontrol/PWMSparkMax.h>
@@ -22,6 +23,10 @@
 #include <ctre/Phoenix.h>
 #include <ctre/phoenix/motorcontrol/can/VictorSPX.h>
 #include <frc/PowerDistribution.h>
+#include <frc/smartdashboard/SmartDashboard.h>
+#include <frc/shuffleboard/Shuffleboard.h>
+
+#include "Distance.h"
 
 //#define CONTROL_2FLIGHTSTICK
 #define CONTROL_1XBOX
@@ -44,7 +49,7 @@ struct Controls
   template <typename DriveT>
   void drive(DriveT &motors, bool speed)
   {
-    motors.ArcadeDrive(gamepad1.GetLeftY() * (speed ? 1.0 : 0.5), gamepad1.GetLeftX() * (speed ? 1.0 : 0.7));
+    motors.ArcadeDrive(-gamepad1.GetLeftY() * (speed ? 1.0 : 0.4), gamepad1.GetLeftX() * (speed ? 1.0 : 0.5));
   }
 #elif defined(CONTROL_1WHEEL)
   frc::Joystick wheel{0};
@@ -86,7 +91,8 @@ class Robot : public frc::TimedRobot
   frc::PWMSparkMax extender{0};
   frc::AnalogPotentiometer extenderPot{0};
 
-  // frc::DoubleSolenoid shooter{frc::PneumaticsModuleType::CTREPCM, 0, 1};
+  frc::Solenoid shooter{frc::PneumaticsModuleType::CTREPCM, 0};
+  bool shoot = false;
 
   Controls controls;
 
@@ -114,12 +120,22 @@ public:
     gyro.Calibrate();
 
     frc::DataLogManager::Start();
+
+    Distance::init();
   }
 
   void TeleopPeriodic() override
   {
-
     controls.drive(*robotDrive, fast);
+    robotDrive->Feed();
+    robotDrive->Check();
+    Distance::tick();
+    
+    /*char logBuf[100] = {};
+    size_t written = snprintf(logBuf, 100, "Distance: %d", Distance::reading);
+    frc::DataLogManager::Log(std::string_view(logBuf, written));*/
+    frc::SmartDashboard::PutNumber("Ultrasonic Sensor", Distance::reading);
+    
 
     if (controls.gamepad1.GetAButtonPressed())
     {
@@ -131,7 +147,20 @@ public:
     }
     // robotDrive.ArcadeDriveIK
 
-    extender.Set(controls.gamepad1.GetRightY());
+    extender.Set(-controls.gamepad1.GetRightY());
+
+    if (controls.gamepad1.GetXButtonPressed())
+    {
+      shooter.Set(true);
+    }
+    else if (controls.gamepad1.GetXButtonReleased())
+    {
+
+      shooter.Set(false);
+    }
+
+    
+
 
     /*if (controls.gamepad1.GetLeftBumperPressed() || controls.gamepad1.GetRightBumperPressed())
     {
