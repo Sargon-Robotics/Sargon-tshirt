@@ -4,9 +4,10 @@
 
 namespace Distance {
     inline std::optional<frc::SerialPort> serial;
-    inline int reading = 0;
+    inline int reading = -1;
+    inline int64_t lastSample = -1;
 
-    constexpr int SAFE_DISTANCE_MAX = 150;
+    constexpr int SAFE_DISTANCE_MIN = 260;
 
     void init() {
         serial = frc::SerialPort(9600);
@@ -41,5 +42,9 @@ namespace Distance {
                 ptr++;
             }
         }
+    }
+
+    bool safeToShoot() {
+
     }
 }
