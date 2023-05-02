@@ -27,10 +27,15 @@
 #include <frc/shuffleboard/Shuffleboard.h>
 
 #include "Distance.h"
+#include "LedStrip.h"
 
 //#define CONTROL_2FLIGHTSTICK
 #define CONTROL_1XBOX
 //#define CONTROL_1WHEEL
+
+int64_t nowMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
 
 struct Controls
 {
@@ -86,7 +91,7 @@ class Robot : public frc::TimedRobot
   double gyroPk = 1.0;
 
   bool useTank = false;
-  bool fast = true;
+  bool fast = false;
 
   frc::PWMSparkMax extender{0};
   frc::AnalogPotentiometer extenderPot{0};
@@ -95,6 +100,10 @@ class Robot : public frc::TimedRobot
   bool shoot = false;
 
   Controls controls;
+
+  LedStrip leds{1, 2, 3, defaultLedPatterns[0]};
+
+  int64_t prevUpdate = 0;
 
 public:
   void RobotInit() override
@@ -122,10 +131,15 @@ public:
     frc::DataLogManager::Start();
 
     Distance::init();
+
+    prevUpdate = nowMs();
   }
 
   void TeleopPeriodic() override
   {
+    int64_t now = nowMs();
+    int64_t delta = now - prevUpdate;
+
     controls.drive(*robotDrive, fast);
     robotDrive->Feed();
     robotDrive->Check();
@@ -149,13 +163,12 @@ public:
 
     extender.Set(-controls.gamepad1.GetRightY());
 
-    if (controls.gamepad1.GetXButtonPressed())
+    if (controls.gamepad1.GetXButtonPressed() && Distance::safeToShoot())
     {
       shooter.Set(true);
     }
-    else if (controls.gamepad1.GetXButtonReleased())
+    else
     {
-
       shooter.Set(false);
     }
 
@@ -172,6 +185,21 @@ public:
       frc::DataLogManager::Log(out);
 
     }*/
+
+
+    leds.intensityMultiplier = frc::SmartDashboard::GetNumber("intensityMultiplier", leds.intensityMultiplier);
+    defaultColor.r = frc::SmartDashboard::GetNumber("defaultColorRed", defaultColor.r);
+    defaultColor.g = frc::SmartDashboard::GetNumber("defaultColorGreen", defaultColor.g);
+    defaultColor.b = frc::SmartDashboard::GetNumber("defaultColorBlue", defaultColor.b);
+
+    if (controls.gamepad1.GetYButtonPressed()) {
+      currentLedPattern = currentLedPattern + 1 >= (sizeof(defaultLedPatterns) / sizeof(ColorUpdater)) ? 0 : currentLedPattern + 1;
+      leds.setUpdater(defaultLedPatterns[currentLedPattern]);
+    }
+
+    leds.tick(now, delta);
+
+    prevUpdate = now;
   }
 };
 
