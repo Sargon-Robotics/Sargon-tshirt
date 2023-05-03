@@ -12,6 +12,7 @@ namespace Distance {
     inline frc::MedianFilter<int> filter(10);
     inline int filterSample = 0;
     inline int64_t lastSeenTime = 0;
+    inline int prevSamples[2] = {0,0};
 
     constexpr int SAFE_DISTANCE_MIN = 260;
 
@@ -38,8 +39,9 @@ namespace Distance {
                     if (valuesPtr == 2) {
                         reading = values[0] * 100 + values[1] * 10 + values[2];
                         filterSample = filter.Calculate(reading);
+                        prevSamples[0] = prevSamples[1];
+                        prevSamples[1] = reading;
 
-                        lastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
                         if (filterSample < SAFE_DISTANCE_MIN) {
                             lastSeenTime = lastUpdate;
                         }
@@ -52,6 +54,8 @@ namespace Distance {
 
                 ptr++;
             }
+
+            lastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         }
     }
 
@@ -64,6 +68,11 @@ namespace Distance {
 
         if (now - lastSeenTime < 5000) {
             // If an object has been detected in the last 5 seconds
+            return false;
+        }
+
+        if (prevSamples[0] < SAFE_DISTANCE_MIN && prevSamples[1] < SAFE_DISTANCE_MIN) {
+            // Two positive readings in a row
             return false;
         }
 

@@ -19,7 +19,7 @@ public:
 	PerlinNoise(unsigned int seed);
 	// Get a noise value, for 2D images z can have any value
 	double noise(double x, double y, double z) const;
-private:
+
 	static double fade(double t) { 
 		return t * t * t * (t * (t * 6 - 15) + 10);
 	}

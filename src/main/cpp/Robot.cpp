@@ -101,7 +101,7 @@ class Robot : public frc::TimedRobot
 
   Controls controls;
 
-  LedStrip leds{1, 2, 3, defaultLedPatterns[0]};
+  LedStrip leds{1, 2, 3, 0, defaultLedPatterns[0]};
 
   int64_t prevUpdate = 0;
 
@@ -133,6 +133,14 @@ public:
     Distance::init();
 
     prevUpdate = nowMs();
+  }
+
+  void TeleopInit() override {
+    leds.power.Set(frc::Relay::Value::kOn);
+  }
+
+  void TeleopExit() override {
+    leds.power.Set(frc::Relay::Value::kOff);
   }
 
   void TeleopPeriodic() override
