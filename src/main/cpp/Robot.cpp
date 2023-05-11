@@ -25,6 +25,7 @@
 #include <frc/PowerDistribution.h>
 #include <frc/smartdashboard/SmartDashboard.h>
 #include <frc/shuffleboard/Shuffleboard.h>
+#include <frc/Relay.h>
 
 #include "Distance.h"
 #include "LedStrip.h"
@@ -39,7 +40,7 @@ int64_t nowMs() {
 
 struct Controls
 {
-#ifdef CONTROL_2FLIGHTSTICK
+#if defined(CONTROL_2FLIGHTSTICK)
   frc::Joystick leftStick{0};
   frc::Joystick rightStick{1};
 
@@ -54,7 +55,7 @@ struct Controls
   template <typename DriveT>
   void drive(DriveT &motors, bool speed)
   {
-    motors.ArcadeDrive(-gamepad1.GetLeftY() * (speed ? 1.0 : 0.4), gamepad1.GetLeftX() * (speed ? 1.0 : 0.5));
+    motors.TankDrive(-gamepad1.GetLeftY() * (speed ? 1.0 : 0.4), gamepad1.GetLeftX() * (speed ? 1.0 : 0.5));
   }
 #elif defined(CONTROL_1WHEEL)
   frc::Joystick wheel{0};
@@ -63,11 +64,6 @@ struct Controls
   void drive(DriveT &motors)
   {
     motors.ArcadeDrive(wheel.GetRawAxis(1), wheel.GetRawAxis(0));
-  }
-
-  void pressed(int button)
-  {
-    wheel.GetRawButtonPressed(button);
   }
 #endif
 };
@@ -85,7 +81,20 @@ class Robot : public frc::TimedRobot
   ctre::phoenix::motorcontrol::can::WPI_VictorSPX rightFront{1};
   ctre::phoenix::motorcontrol::can::WPI_VictorSPX rightBack{4};
 
-  frc::DifferentialDrive* robotDrive;
+  frc::DifferentialDrive robotDrive = [&](){
+ rightFront.SetInverted(true);
+    rightBack.Follow(rightFront);
+    rightBack.SetInverted(InvertType::FollowMaster);
+    leftBack.Follow(leftFront);
+    leftBack.SetInverted(InvertType::FollowMaster);
+
+    rightFront.ConfigNeutralDeadband(0.01);
+    leftFront.ConfigNeutralDeadband(0.01);
+
+    rightFront.ConfigOpenloopRamp(0.5);
+    leftFront.ConfigOpenloopRamp(0.5);
+    return frc::DifferentialDrive(leftFront, rightFront);
+  }();
 
   frc::ADXRS450_Gyro gyro;
   double gyroPk = 1.0;
@@ -103,19 +112,14 @@ class Robot : public frc::TimedRobot
 
   LedStrip leds{1, 2, 3, 0, defaultLedPatterns[0]};
 
+  frc::Talon fakeRSL{4};
+
   int64_t prevUpdate = 0;
 
 public:
   void RobotInit() override
   {
-    // We need to invert one side of the drivetrain so that positive voltages
-    // result in both sides moving forward. Depending on how your robot's
-    // gearbox is constructed, you might have to invert the left side instead.
-    rightFront.SetInverted(true);
-    rightBack.Follow(rightFront);
-    rightBack.SetInverted(InvertType::FollowMaster);
-    leftBack.Follow(leftFront);
-    leftBack.SetInverted(InvertType::FollowMaster);
+    rightBack.SetInverted(true);
 
     rightFront.ConfigNeutralDeadband(0.01);
     leftFront.ConfigNeutralDeadband(0.01);
@@ -123,8 +127,8 @@ public:
     rightFront.ConfigOpenloopRamp(0.5);
     leftFront.ConfigOpenloopRamp(0.5);
 
-    robotDrive = new frc::DifferentialDrive(leftFront, rightFront);
-    robotDrive->SetDeadband(0.0);
+    robotDrive = frc::DifferentialDrive(leftBack, rightBack);
+    robotDrive.SetDeadband(0.0);
 
     gyro.Calibrate();
 
@@ -148,9 +152,7 @@ public:
     int64_t now = nowMs();
     int64_t delta = now - prevUpdate;
 
-    controls.drive(*robotDrive, fast);
-    robotDrive->Feed();
-    robotDrive->Check();
+    controls.drive(robotDrive, fast);
     Distance::tick();
     
     /*char logBuf[100] = {};
@@ -171,15 +173,24 @@ public:
 
     extender.Set(-controls.gamepad1.GetRightY());
 
-    if (controls.gamepad1.GetXButtonPressed() && Distance::safeToShoot())
+    bool safe = Distance::safeToShoot();
+
+    if (controls.gamepad1.GetXButton() && safe)
     {
       shooter.Set(true);
     }
     else
     {
+      
       shooter.Set(false);
     }
 
+    if (!safe) {
+      fakeRSL.Set((now % 500) > 100);
+    }
+    else {
+      fakeRSL.Set(0);
+    }
     
 
 
@@ -201,7 +212,7 @@ public:
     defaultColor.b = frc::SmartDashboard::GetNumber("defaultColorBlue", defaultColor.b);
 
     if (controls.gamepad1.GetYButtonPressed()) {
-      currentLedPattern = currentLedPattern + 1 >= (sizeof(defaultLedPatterns) / sizeof(ColorUpdater)) ? 0 : currentLedPattern + 1;
+      currentLedPattern = currentLedPattern + 1 >= int(sizeof(defaultLedPatterns) / sizeof(ColorUpdater)) ? 0 : currentLedPattern + 1;
       leds.setUpdater(defaultLedPatterns[currentLedPattern]);
     }
 

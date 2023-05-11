@@ -19,52 +19,27 @@ struct Color {
     }
 };
 
-Color hsvToRgb(Color hsv) {
-    auto [h, s, v] = hsv;
-    double r, g, b;
+Color hsvToRgb(double h, double s, double v) {
+    if (s == 0.0) { return {v, v, v};}
 
-    double c = v * s; // Chroma
-    double hPrime = fmod(h / 60.0, 6);
-    double x = c * (1 - fabs(fmod(hPrime, 2) - 1));
-    double m = v - c;
+    int i = int(h * 6.0);
+    double f = (h * 6.0) - i;
+    double p = v * (1.0 - s);
+    double q = v * (1.0 - s * f);
+    double t = v * (1.0 - s * (1.0 - f));
+    i %= 6;
 
-    if (0 <= hPrime && hPrime < 1) {
-        r = c;
-        g = x;
-        b = 0;
+    switch (i) {
+        case 0: return { v, t, p };
+        case 1: return { q, v, p };
+        case 2: return { p, v, t };
+        case 3: return { p, q, v };
+        case 4: return { t, p, v };
+        case 5: return { v, p, q };
+        default: {
+            return { v, p, q };
+        }
     }
-    else if (1 <= hPrime && hPrime < 2) {
-        r = x;
-        g = c;
-        b = 0;
-    }
-    else if (2 <= hPrime && hPrime < 3) {
-        r = 0;
-        g = c;
-        b = x;
-    }
-    else if (3 <= hPrime && hPrime < 4) {
-        r = 0;
-        g = x;
-        b = c;
-    }
-    else if (4 <= hPrime && hPrime < 5) {
-        r = x;
-        g = 0;
-        b = c;
-    }
-    else if (5 <= hPrime && hPrime < 6) {
-        r = c;
-        g = 0;
-        b = x;
-    }
-    else { 
-        r = 0;
-        g = 0;
-        b = 0;
-    }
-
-    return { r + m, g + m, b + m };
 }
 
 Color HSV2RGB(Color _HSV)
@@ -111,7 +86,7 @@ public:
     }
 };
 
-double cycleTime = 1000; // How often to go through a full color cycle
+double cycleTime = 2000; // How often to go through a full color cycle
 Color defaultColor = { 0, 0, 0.5 };
 
 ColorUpdater defaultLedPatterns[] = {
@@ -122,7 +97,7 @@ ColorUpdater defaultLedPatterns[] = {
     
 
     // Breathing blue (Cycles 0.5 to 1.0 on only blue)
-    [](int64_t now, int64_t, Color) -> Color { return { 0, 0, (std::abs(std::sin((M_PI * double(now)) / cycleTime)) + 1.0) / 2.0 }; },
+    [](int64_t now, int64_t, Color) -> Color { return { 0, 0, (std::abs(std::sin((M_PI * double(now)) / cycleTime)) + 0.5) / 2.0 }; },
 
     // Default color
     [](int64_t, int64_t, Color) { return defaultColor; },
@@ -130,8 +105,8 @@ ColorUpdater defaultLedPatterns[] = {
     // Rainbow
     [](int64_t now, int64_t, Color) -> Color { 
         static double hue = 0.0;
-        hue = std::fmod(hue + 0.1, 1.0);
-        return hsvToRgb({hue, 1.0, 1.0});
+        hue = std::fmod(hue + 0.02, 1.0);
+        return hsvToRgb(hue, 1.0, 1.0);
     },
 
     // Solid color
@@ -152,7 +127,7 @@ ColorUpdater defaultLedPatterns[] = {
     // Coherent noise
     [](int64_t now, int64_t, Color) -> Color { 
         const static PerlinNoise pn;
-        return { pn.noise(0, 0, double(now) / 10.0), pn.noise(10.0, 0, double(now) / 10.0), pn.noise(20.0, 0, double(now) / 10.0) };
+        return { pn.noise(0, 0, double(now) / 1000), pn.noise(10.0, 0, double(now) / 1000.0), pn.noise(20.0, 0, double(now) / 1000.0) };
     }
 
     // Muddy

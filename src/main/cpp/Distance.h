@@ -14,7 +14,7 @@ namespace Distance {
     inline int64_t lastSeenTime = 0;
     inline int prevSamples[2] = {0,0};
 
-    constexpr int SAFE_DISTANCE_MIN = 260;
+    constexpr int SAFE_DISTANCE_MIN = 230;
 
     void init() {
         serial = frc::SerialPort(9600);
